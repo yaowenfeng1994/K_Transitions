@@ -2,6 +2,7 @@ package transitions
 
 import (
 	"context"
+	"fmt"
 	"sort"
 )
 
@@ -37,7 +38,7 @@ type stateGraph struct {
 	//states StatesDef
 	//events EventsDef
 	state       State                           // 当前状态
-	transitions map[State]map[Event]*Transition // 表示图上每个节点的状态，每个状态可执行的动作，每个动作对应的触发器
+	transitions map[State]map[Event]*Transition // 表示图上每个节点的状态，每个状态要执行的动作，每个动作对应的触发器
 }
 
 type stateMachine struct {
@@ -64,19 +65,34 @@ func (sm *stateMachine) Transitions(transitions ...Transition) *stateMachine {
 	for index := range transitions {
 		newTransfer := &transitions[index]
 		events, ok := sm.sg.transitions[newTransfer.Source]
+		// 先附上所有节点的状态
 		if !ok {
+			fmt.Println(events)
 			events = map[Event]*Transition{}
 			sm.sg.transitions[newTransfer.Source] = events
 		}
+		// 再附上每个状态要执行的动作
 		if transfer, ok := events[newTransfer.Event]; ok {
 			transfer.To = append(transfer.To, newTransfer.To...)
-			// 去掉重复
+			// 去掉重复的状态
 			sort.Strings(transfer.To)
 			transfer.To = removeDuplicatesAndEmpty(transfer.To)
 			events[newTransfer.Event] = transfer
 		} else {
+			fmt.Println(newTransfer)
 			events[newTransfer.Event] = newTransfer
 		}
 	}
 	return sm
+}
+
+func removeDuplicatesAndEmpty(a []State) (ret []State) {
+	aLen := len(a)
+	for i := 0; i < aLen; i++ {
+		if (i > 0 && a[i-1] == a[i]) || len(a[i]) == 0 {
+			continue
+		}
+		ret = append(ret, a[i])
+	}
+	return
 }
