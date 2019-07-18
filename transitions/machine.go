@@ -89,13 +89,17 @@ func (sm *stateMachine) Events(events EventsDef) *stateMachine {
 	return sm
 }
 
+func (sm *stateMachine) Processor(processor EventProcessor) *stateMachine {
+	sm.processor = processor
+	return sm
+}
+
 func (sm *stateMachine) Transitions(transitions ...Transition) *stateMachine {
 	for index := range transitions {
 		newTransfer := &transitions[index]
 		events, ok := sm.sg.transitions[newTransfer.Source]
-		// 先附上所有节点的状态，有重复节点状态表示改状态有多个触发动作
+		// 先附上所有节点的状态，有重复节点状态表示该状态有多个触发动作
 		if !ok {
-			fmt.Println(events)
 			events = map[Event]*Transition{}
 			sm.sg.transitions[newTransfer.Source] = events
 		}
@@ -107,7 +111,6 @@ func (sm *stateMachine) Transitions(transitions ...Transition) *stateMachine {
 			transfer.To = removeDuplicatesAndEmpty(transfer.To)
 			events[newTransfer.Event] = transfer
 		} else {
-			fmt.Println(newTransfer)
 			events[newTransfer.Event] = newTransfer
 		}
 	}
@@ -147,7 +150,6 @@ func (sm *stateMachine) Trigger(ctx context.Context, from State, event Event) (S
 		}
 
 		_ = processor.OnExit(ctx, from, event)
-
 		to, err := transfer.Action(ctx, from, event, transfer.To)
 		if err != nil {
 			// 转换执行错误处理
@@ -155,10 +157,8 @@ func (sm *stateMachine) Trigger(ctx context.Context, from State, event Event) (S
 			return to, err
 		}
 		// TODO 返回状态不在状态表中如何处理 ？？？
-
 		// 进入状态处理，转换之后
 		_ = processor.OnEnter(ctx, to)
-
 		return to, err
 	}
 	return "", errors.New(fmt.Sprintf("没有定义状态转换事件 [%v --%v--> ???]", from, event))
