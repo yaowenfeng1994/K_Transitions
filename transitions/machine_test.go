@@ -8,35 +8,48 @@ import (
 
 // 状态
 const (
-	Initial  = "Initial"
-	WaitPay  = "WaitPay"
-	PaySuccess   = "PaySuccess"
+	Initial    = "Initial"
+	WaitPay    = "WaitPay"
+	PaySuccess = "PaySuccess"
+	PayFail    = "PayFail"
 )
 
 // 动作
 const (
-	CreateEvent     = "Create"
-	PayEvent        = "Pay"
+	CreateEvent = "Create"
+	PayEvent    = "Pay"
 )
 
-func doAction(ctx context.Context, from State, event Event, to []State) (state State, e error) {
-	println(fmt.Sprintf("doAction: [%v] --%s--> %v", ctx.Value("data"), event, to))
+const (
+	PayCondition = false
+)
+
+func CreateEventAction(ctx context.Context, from State, event Event, to []State) (state State, e error) {
+	println(fmt.Sprintf("CreateEventAction: [%v] --%s--> %v", ctx.Value("data"), event, to))
 	return to[0], nil
 }
 
+func PayEventAction(ctx context.Context, from State, event Event, to []State) (state State, e error) {
+	println(fmt.Sprintf("PayEventAction: [%v] --%s--> %v", ctx.Value("data"), event, to))
+	if PayCondition {
+		return PaySuccess, nil
+	}
+	return PayFail, nil
+}
+
 var Transitions = []Transition{
-	{Initial, CreateEvent, []State{WaitPay}, doAction, nil},
-	{WaitPay, PayEvent, []State{PaySuccess}, doAction, nil},
+	{Initial, CreateEvent, []State{WaitPay}, CreateEventAction, nil},
+	{WaitPay, PayEvent, []State{PaySuccess, PayFail}, PayEventAction, nil},
 }
 
 var states = StatesDef{
-	Initial: "开始",
-	WaitPay: "待支付",
-	PaySuccess:  "支付成功",}
+	Initial:    "开始",
+	WaitPay:    "待支付",
+	PaySuccess: "支付成功",}
 
 var events = EventsDef{
-	CreateEvent:     "创建订单",
-	PayEvent:        "支付",}
+	CreateEvent: "创建订单",
+	PayEvent:    "支付",}
 
 type OrderEventProcessor struct{}
 
@@ -60,15 +73,24 @@ func TestStateMachine_Example_Order(t *testing.T) {
 	orderStateMachine.Transitions(Transitions...)
 	orderStateMachine.States(states)
 	orderStateMachine.Events(events)
-	orderStateMachine.Processor(&OrderEventProcessor{})
-	//order := context.WithValue(context.TODO(), "data", "order object data")
+	//orderStateMachine.Processor(&OrderEventProcessor{})
+	order := context.WithValue(context.TODO(), "data", "order object data")
+	//fmt.Println(orderStateMachine.sg.state)
+	//_, err := orderStateMachine.Trigger(order, CreateEvent)
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	//fmt.Println(orderStateMachine.sg.state)
+	//_, err = orderStateMachine.Trigger(order, CreateEvent)
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	//fmt.Println(orderStateMachine.sg.state)
 
-	//state, err := orderStateMachine.Trigger(order, Initial, CreateEvent)
-	//println(fmt.Sprintf("====: %v : %v", state, err))
-
-	//state, err = orderStateMachine.Trigger(order, Initial, PayEvent)
-	//println(fmt.Sprintf("====: %v : %v", state, err))
-
-	//state, err = orderStateMachine.Trigger(order, WaitPay, PayEvent)
-	//println(fmt.Sprintf("====: %v : %v", state, err))
+	orderStateMachine.State(WaitPay)
+	_, err := orderStateMachine.Trigger(order, PayEvent)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(orderStateMachine.sg.state)
 }
